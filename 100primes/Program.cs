@@ -109,6 +109,15 @@ namespace _100primes
 
             foreach(string x in primes)
             {
+                switch(x)
+                {
+                    case "2":
+                    case "3":
+                    case "5":
+                    case "7":
+                    case "11":
+                        continue;
+                }
                 ulong num = ulong.Parse(x);
                 ulong num2 = ulong.Parse(number);
                 if (Math.Pow(num, 2) <= num2)
@@ -132,7 +141,7 @@ namespace _100primes
             Console.WriteLine("Currently running " + num);
             Console.WriteLine("Last Prime Found: #" + primes.Count + " - " + primes[primes.Count - 1]);
             uint temp2 = (uint)(primes.Count);
-            Console.WriteLine((temp2 - placeholder) + " numbers processed in the last second.");
+            Console.WriteLine((temp2 - placeholder) + " primes processed in the last second.");
             placeholder = (ulong)primes.Count;
         }
     }
