@@ -9,19 +9,17 @@ namespace _100primes
 {
     class Program
     {
-        static List<string> primes = new List<string>();
         static List<string> writer = new List<string>();
-        static ulong placeholder = 0;
+        static double placeholder = 0;
         static DateTime start;
         static void Main(string[] args)
         {
-            if (File.Exists("primes.txt"))
-                File.Delete("primes.txt");
-            uint lowlimit = 2;
-            UInt64 highlimit = UInt64.MaxValue;
+            dbclass.updatestats();
+            Double lowlimit = Double.Parse(dbclass.largestnum) == 0 ? 2: Double.Parse(dbclass.largestnum);
+            Double highlimit = Math.Sqrt(Double.MaxValue);
             DateTime timer = DateTime.Now;
             start = DateTime.Now;
-            for (UInt64 i = lowlimit; i != highlimit; i++)
+            for (double i = lowlimit + 1; i != highlimit; i++)
             {
                 if (DateTime.Now.Second != timer.Second)
                 {
@@ -30,27 +28,20 @@ namespace _100primes
                 }
                 if (isprime(i.ToString()))
                 {
-                    primes.Add(i.ToString());
                     writer.Add(i.ToString());
-                    if (primes.Count % 1000000 == 0)
+                    if (writer.Count % 1000 == 0)
                     {
-                        Console.Beep();
-                        File.AppendAllLines("primes.txt", writer);
+                        Console.WriteLine("Writing Database...");
+                        dbclass.write(writer.ToArray());
                         writer = new List<string>();
-                        GC.Collect();
-                        GC.WaitForPendingFinalizers();
                     }
                 }
             }
         }
-        static void printnum(ulong num)
-        {
-            Console.WriteLine(num + " - " + (isprime(num.ToString()) ? "Prime" : "Not Prime"));
-        }
         static bool isprime(string number)
         {
-            if (number == "1619")
-                Console.Write("");
+            //if (number == "1619")
+            //    Console.Write("");
             if(number.Length == 1 || number == "11")
             {
                 int[] firstprimes = { 2, 3, 5, 7, 11 };
@@ -82,15 +73,15 @@ namespace _100primes
             while (sevens.Length > 2)
             {
                 uint secondhalf = uint.Parse(sevens[sevens.Length-1].ToString());
-                sevens = (ulong.Parse(sevens.Substring(0, sevens.Length - 1)) + (secondhalf*5)).ToString();
+                sevens = (double.Parse(sevens.Substring(0, sevens.Length - 1)) + (secondhalf*5)).ToString();
             }
             if (int.Parse(sevens) % 7 == 0)
                 return false;//not prime
 
             //--11--//
             bool flipflop = false;
-            ulong flip = 0;
-            ulong flop = 0;
+            double flip = 0;
+            double flop = 0;
             foreach(char x in number)
             {
                 if(flipflop)
@@ -107,6 +98,7 @@ namespace _100primes
             if(Math.Abs((float)flip - flop)%11 == 0)
                 return false;
 
+            string[] primes = dbclass.read(number);
             foreach(string x in primes)
             {
                 switch(x)
@@ -118,19 +110,14 @@ namespace _100primes
                     case "11":
                         continue;
                 }
-                ulong num = ulong.Parse(x);
-                ulong num2 = ulong.Parse(number);
-                if (Math.Pow(num, 2) <= num2)
-                {
-                    if (num2 % num == 0)
-                        return false;
-                }
-                else
-                    return true;
+                double num = double.Parse(x);
+                double num2 = double.Parse(number);
+                if (num2 % num == 0)
+                    return false;
             }
             return true;
         }
-        static void display(ulong num)
+        static void display(double num)
         {
             Console.Clear();
             Console.WriteLine("Process started at " + start.ToLongTimeString() + ".");
@@ -138,11 +125,21 @@ namespace _100primes
             Console.WriteLine("Running for {0:N0} days, {1} hours, {2} minutes, {3} seconds",
                                 elapsedSpan.Days, elapsedSpan.Hours,
                                 elapsedSpan.Minutes, elapsedSpan.Seconds);
-            Console.WriteLine("Currently running " + num);
-            Console.WriteLine("Last Prime Found: #" + primes.Count + " - " + primes[primes.Count - 1]);
-            uint temp2 = (uint)(primes.Count);
-            Console.WriteLine((temp2 - placeholder) + " primes processed in the last second.");
-            placeholder = (ulong)primes.Count;
+            Console.WriteLine("Currently running " + String.Format("{0:n0}",num));
+            if (writer.Count == 0)
+            {
+                Console.WriteLine("Process is initializing or writer has recently dumped. Please wait while we catch up.");
+            }
+            else
+            {
+                double temp = double.Parse(writer[writer.Count - 1]);
+                Console.Write("Last Prime Found: #" + String.Format("{0:n0}", (writer.Count + Double.Parse(dbclass.databasesize))) + " - ");
+                Console.WriteLine(String.Format("{0:n0}", temp));
+            }
+                
+            double temp2 = (double)(writer.Count + Double.Parse(dbclass.databasesize));
+            Console.WriteLine((temp2 - placeholder) + " primes processed in the last second." + (dbclass.squarestoobig?"We are now not able to calculate squares. This happened on prime number " + dbclass.squarestoobigstart:""));
+            placeholder = (double)(writer.Count + Double.Parse(dbclass.databasesize));
         }
     }
 }
