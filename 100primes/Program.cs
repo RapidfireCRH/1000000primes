@@ -109,28 +109,19 @@ namespace _100primes
                 return false; // not prime
 
             string[] primes = dbclass.find_possible_factors(number);
-            foreach (string x in primes)
+
+            bool IsDivisable(string numstring)
             {
-                switch (x)//These checks are done prior to find these non-primes before going through the whole list. do not need to do them again
-
-                {
-                    case "2":
-                    case "3":
-                    case "5":
-                    case "7":
-                    case "11":
-                        continue;
-                }
-
-                double num = double.Parse(x);
-                double num2 = double.Parse(number);
-                if (num * num > num2)//too big
-                    return true;
-                if (num2 % num == 0)//is divisable
-                    return false;
+                double num = Double.Parse(numstring);
+                double numb = Double.Parse(number);
+                return (num * num < numb && numb % num == 0);
             }
 
-            return true;
+            var validpairs = primes.AsParallel().Where(IsDivisable).ToList();
+            if (validpairs.Count == 0)
+                return true;
+            else
+                return false;
         }
         static void display(double num, DateTime timer)
         {
