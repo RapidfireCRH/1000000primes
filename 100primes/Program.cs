@@ -9,46 +9,55 @@ namespace _100primes
 {
     class Program
     {
-        static List<string> writer = new List<string>();
         static double placeholder = 0;
         static DateTime start;
+        static string prevnum = "0";
+        static uint[] seconds = new uint[60];
+        static uint[] minutes = new uint[60];
+        static uint[] hours = new uint[24];
         static void Main(string[] args)
         {
-            dbclass.updatestats();
-            Double lowlimit = Double.Parse(dbclass.largestnum) == 0 ? 2: Double.Parse(dbclass.largestnum);
-            Double highlimit = Math.Sqrt(Double.MaxValue);
-            DateTime timer = DateTime.Now;
-            start = DateTime.Now;
-            for (double i = lowlimit + 1; i != highlimit; i++)
+            dbclass.open(Directory.GetCurrentDirectory(), "db.sqlite");
+            try
             {
-                if (DateTime.Now.Second != timer.Second)
+                Double lowlimit = Double.Parse(dbclass.dbstats.largestnum);
+                Double highlimit = Math.Sqrt(Double.MaxValue);
+                DateTime timer = DateTime.Now;
+                start = DateTime.Now;
+                for (double i = lowlimit + 1; i != highlimit; i++)
                 {
-                    display(i);
-                    timer = DateTime.Now;
-                }
-                if (isprime(i.ToString()))
-                {
-                    writer.Add(i.ToString());
-                    if (writer.Count % 1000 == 0)
+                    if (i == 2)//new db, populate with first 5 primes
                     {
-                        Console.WriteLine("Writing Database...");
-                        dbclass.write(writer.ToArray());
-                        writer = new List<string>();
+                        dbclass.add_prime("2");
+                        dbclass.add_prime("3");
+                        dbclass.add_prime("5");
+                        dbclass.add_prime("7");
+                        dbclass.add_prime("11");
+                        i = 12;
+                    }
+                    if (DateTime.Now.Second != timer.Second)
+                    {
+                        display(i, timer);
+                        timer = DateTime.Now;
+                    }
+                    if (isprime(i.ToString()))
+                    {
+                        dbclass.add_prime(i.ToString());
+                        seconds[0]++;
                     }
                 }
+            }
+            catch
+            {
+                dbclass.close();
             }
         }
         static bool isprime(string number)
         {
-            //if (number == "1619")
+            //if (number == "169")
             //    Console.Write("");
-            if(number.Length == 1 || number == "11")
-            {
-                int[] firstprimes = { 2, 3, 5, 7, 11 };
-                foreach (int x in firstprimes)
-                    if (int.Parse(number) == x)
-                        return true;
-            }
+
+            //-----------LAST DIGIT CHECKS----------//
             int last = int.Parse(number[number.Length - 1].ToString());
             //--2--//
             if (last % 2 == 0)//2
@@ -57,6 +66,7 @@ namespace _100primes
             if (last == 5)//5 (0 is already covered by 2)
                 return false;
 
+            //---------Other Checks-----------------//
             //--3--//
             int total = 0;
             foreach (char x in number)
@@ -66,7 +76,7 @@ namespace _100primes
                     total -= 9;
             }
             if (total % 3 == 0)
-                return false;
+                return false;//not prime
 
             //--7--//
             string sevens = number;
@@ -96,12 +106,13 @@ namespace _100primes
                 }
             }
             if(Math.Abs((float)flip - flop)%11 == 0)
-                return false;
+                return false; // not prime
 
-            string[] primes = dbclass.read(number);
-            foreach(string x in primes)
+            string[] primes = dbclass.find_possible_factors(number);
+            foreach (string x in primes)
             {
-                switch(x)
+                switch (x)//These checks are done prior to find these non-primes before going through the whole list. do not need to do them again
+
                 {
                     case "2":
                     case "3":
@@ -110,38 +121,80 @@ namespace _100primes
                     case "11":
                         continue;
                 }
+
                 double num = double.Parse(x);
                 double num2 = double.Parse(number);
-                if (num2 % num == 0)
+                if (num * num > num2)//too big
+                    return true;
+                if (num2 % num == 0)//is divisable
                     return false;
             }
+
             return true;
         }
-        static void display(double num)
+        static void display(double num, DateTime timer)
         {
+            if (placeholder == 0)
+                placeholder = Double.Parse(dbclass.dbstats.databasesize);
+
             Console.Clear();
             Console.WriteLine("Process started at " + start.ToLongTimeString() + ".");
             TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - start.Ticks);
             Console.WriteLine("Running for {0:N0} days, {1} hours, {2} minutes, {3} seconds",
                                 elapsedSpan.Days, elapsedSpan.Hours,
                                 elapsedSpan.Minutes, elapsedSpan.Seconds);
-            Console.WriteLine("Currently running " + String.Format("{0:n0}",num));
-            if (writer.Count == 0)
+            Console.WriteLine("Currently running " + String.Format("{0:n0}", num));
+
+            if (DateTime.Now.Hour != timer.Hour)
             {
-                Console.WriteLine("Process is initializing or writer has recently dumped. Please wait while we catch up.");
+                for (int i = 22; i != -1; i--)
+                    hours[i + 1] = hours[i];
+                hours[0] = 0;
             }
-            else
+            if (DateTime.Now.Minute != timer.Minute)
             {
-                double temp = double.Parse(writer[writer.Count - 1]);
-                Console.Write("Last Prime Found: #" + String.Format("{0:n0}", (writer.Count + Double.Parse(dbclass.databasesize))) + " - ");
-                Console.WriteLine(String.Format("{0:n0}", temp));
+                for (int i = 58; i != -1; i--)
+                    minutes[i + 1] = minutes[i];
+                minutes[0] = 0;
             }
-                
-            double temp2 = (double)(writer.Count + Double.Parse(dbclass.databasesize));
-            Console.WriteLine((temp2 - placeholder) + " primes processed in the last second." + (dbclass.squarestoobig?"We are now not able to calculate squares. This happened on prime number " + dbclass.squarestoobigstart:""));
-            placeholder = (double)(writer.Count + Double.Parse(dbclass.databasesize));
+            for (int i = 58; i != -1; i--)
+                seconds[i + 1] = seconds[i];
+
+            minutes[0] += seconds[0];
+            hours[0] += seconds[0];
+            double temp = Double.Parse(dbclass.dbstats.largestnum);
+            Console.Write("Last Prime Found: #" + String.Format("{0:n0}", Double.Parse(dbclass.dbstats.databasesize)) + " - ");
+            Console.WriteLine(String.Format("{0:n0}", temp));
+            double temp2 = (double)(seconds[0] + Double.Parse(dbclass.dbstats.databasesize));
+            Console.WriteLine(dbclass.dbstats.squarestoobig ? "We are now not able to calculate squares. This happened on prime number " + dbclass.dbstats.squarestoobigstart : "");
+
+
+            Console.WriteLine("");
+            Console.WriteLine("Found Prime Stats:");
+                Console.WriteLine(num - Double.Parse(prevnum) + " numbers processed.");
+                prevnum = num.ToString();
+            Console.WriteLine("Last Second      : " + seconds[0]);
+            Console.WriteLine("Last 5 Seconds   : " + addval(seconds, 5) + " (" + addval(seconds, 5) / 5 + ")");
+            Console.WriteLine("Last 30 Seconds  : " + addval(seconds, 30) + " (" + addval(seconds, 30) / 30 + ")");
+            Console.WriteLine("Last Minute      : " + addval(seconds) + " (" + addval(seconds) / 60 + ")");
+            Console.WriteLine("Last Hour        : " + addval(minutes) + " (" + (addval(minutes) / 60) / 60 + ")");
+            Console.WriteLine("Last 24 Hours    : " + addval(hours) + " (" + ((addval(hours) / 24) / 60) / 60 + ")");
+            placeholder = (double)(seconds[0] + Double.Parse(dbclass.dbstats.databasesize));
+
+
+            seconds[0] = 0;
+        }
+        static uint addval(uint[] val, int num = -1)
+        {
+            uint ret = 0;
+            if (num == -1)
+                num = val.Length;
+            for (int i = 0; i != num; i++)
+                ret += val[i];
+            return ret;
         }
     }
 }
+
 
 
