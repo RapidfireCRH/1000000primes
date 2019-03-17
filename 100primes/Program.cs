@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace _100primes
@@ -12,9 +13,12 @@ namespace _100primes
         static double placeholder = 0;
         static DateTime start;
         static string prevnum = "0";
-        static uint[] seconds = new uint[60];
+        public static int[] seconds = new int[60];
         static uint[] minutes = new uint[60];
         static uint[] hours = new uint[24];
+        public static int process = 0;
+        public static int threads = 0;
+        static DateTime timer = DateTime.Now;
         static void Main(string[] args)
         {
             dbclass.open(Directory.GetCurrentDirectory(), "db.sqlite");
@@ -22,7 +26,6 @@ namespace _100primes
             {
                 Double lowlimit = Double.Parse(dbclass.dbstats.largestnum);
                 Double highlimit = Math.Sqrt(Double.MaxValue);
-                DateTime timer = DateTime.Now;
                 start = DateTime.Now;
                 for (double i = lowlimit + 1; i != highlimit; i++)
                 {
@@ -40,11 +43,7 @@ namespace _100primes
                         display(i, timer);
                         timer = DateTime.Now;
                     }
-                    if (isprime(i.ToString()))
-                    {
-                        dbclass.add_prime(i.ToString());
-                        seconds[0]++;
-                    }
+                    isprime(i.ToString());
                 }
             }
             catch
@@ -82,8 +81,8 @@ namespace _100primes
             string sevens = number;
             while (sevens.Length > 2)
             {
-                uint secondhalf = uint.Parse(sevens[sevens.Length-1].ToString());
-                sevens = (double.Parse(sevens.Substring(0, sevens.Length - 1)) + (secondhalf*5)).ToString();
+                uint secondhalf = uint.Parse(sevens[sevens.Length - 1].ToString());
+                sevens = (double.Parse(sevens.Substring(0, sevens.Length - 1)) + (secondhalf * 5)).ToString();
             }
             if (int.Parse(sevens) % 7 == 0)
                 return false;//not prime
@@ -92,9 +91,9 @@ namespace _100primes
             bool flipflop = false;
             double flip = 0;
             double flop = 0;
-            foreach(char x in number)
+            foreach (char x in number)
             {
-                if(flipflop)
+                if (flipflop)
                 {
                     flipflop = false;
                     flop += uint.Parse(x.ToString());
@@ -105,33 +104,27 @@ namespace _100primes
                     flip += uint.Parse(x.ToString());
                 }
             }
-            if(Math.Abs((float)flip - flop)%11 == 0)
+            if (Math.Abs((float)flip - flop) % 11 == 0)
                 return false; // not prime
+            int workerThreads;
+            int portThreads;
 
-            string[] primes = dbclass.find_possible_factors(number);
-            foreach (string x in primes)
+            ThreadPool.GetMaxThreads(out workerThreads, out portThreads);
+            while (threads == workerThreads)
             {
-                switch (x)//These checks are done prior to find these non-primes before going through the whole list. do not need to do them again
-
+                if (DateTime.Now.Second != timer.Second)
                 {
-                    case "2":
-                    case "3":
-                    case "5":
-                    case "7":
-                    case "11":
-                        continue;
+                    display(Double.Parse(number), timer);
+                    timer = DateTime.Now;
                 }
-
-                double num = double.Parse(x);
-                double num2 = double.Parse(number);
-                if (num * num > num2)//too big
-                    return true;
-                if (num2 % num == 0)//is divisable
-                    return false;
+                Thread.Sleep(50);
             }
-
-            return true;
+            Interlocked.Increment(ref threads);
+            _holder hldr = new _holder();
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate (object state) { hldr.holder(number, dbclass.find_possible_factors(number)); }));
+            return false;
         }
+
         static void display(double num, DateTime timer)
         {
             if (placeholder == 0)
@@ -160,8 +153,8 @@ namespace _100primes
             for (int i = 58; i != -1; i--)
                 seconds[i + 1] = seconds[i];
 
-            minutes[0] += seconds[0];
-            hours[0] += seconds[0];
+            minutes[0] += (uint)seconds[0];
+            hours[0] += (uint)seconds[0];
             double temp = Double.Parse(dbclass.dbstats.largestnum);
             Console.Write("Last Prime Found: #" + String.Format("{0:n0}", Double.Parse(dbclass.dbstats.databasesize)) + " - ");
             Console.WriteLine(String.Format("{0:n0}", temp));
@@ -171,8 +164,8 @@ namespace _100primes
 
             Console.WriteLine("");
             Console.WriteLine("Found Prime Stats:");
-                Console.WriteLine(num - Double.Parse(prevnum) + " numbers processed.");
-                prevnum = num.ToString();
+            Console.WriteLine(num - Double.Parse(prevnum) + " numbers processed.");
+            prevnum = num.ToString();
             Console.WriteLine("Last Second      : " + seconds[0]);
             Console.WriteLine("Last 5 Seconds   : " + addval(seconds, 5) + " (" + addval(seconds, 5) / 5 + ")");
             Console.WriteLine("Last 30 Seconds  : " + addval(seconds, 30) + " (" + addval(seconds, 30) / 30 + ")");
@@ -193,8 +186,43 @@ namespace _100primes
                 ret += val[i];
             return ret;
         }
+        static uint addval(int[] val, int num = -1)
+        {
+            uint ret = 0;
+            if (num == -1)
+                num = val.Length;
+            for (int i = 0; i != num; i++)
+                ret += (uint)val[i];
+            return ret;
+        }
+    }
+    class _holder
+    {
+        public void holder(object number, object primescollection)
+        {
+            if ((string)number == "2841849473")
+                Console.Write("");
+            string[] primes = (string[])primescollection;
+            double num = double.Parse(number.ToString());
+            bool brk = false;
+            foreach (string num2 in primes)
+            {
+                double numb = double.Parse(num2.ToString());
+                if (num * num < numb)//too big
+                    brk = true;
+                if (num % numb == 0)//is divisable
+                    brk = true;
+                if (brk)
+                    break;
+            }
+            if (!brk)
+                dbclass.add_prime(number.ToString());
+            Interlocked.Increment(ref Program.seconds[0]);
+            Interlocked.Decrement(ref Program.threads);
+        }
     }
 }
+
 
 
 

@@ -28,6 +28,8 @@ namespace _100primes
         private static SQLiteConnection m_dbConnection; // global connection variable
         private static double number = 1;
         private static int writerlimit = 1000000;
+        private readonly static object lck = new object();
+        private readonly static object lck2 = new object();
 
         /// <summary>
         /// Opens a new db connection
@@ -59,20 +61,26 @@ namespace _100primes
         /// <returns>a list of factors to check</returns>
         public static string[] find_possible_factors(string num)
         {
-            if (largest * largest > Double.Parse(num))//if we are still below the largest prime
+
+            lock (lck2)
+            {
+                if (largest * largest > Double.Parse(num))//if we are still below the largest prime
+                    return dbcache.ToArray();
+
+                if (largest * largest == Double.Parse(num))//we are equal to the square of the largest prime (just return the largest, since it will be a factor)
+                    return new string[] { largest.ToString() };
+                lock (lck)
+                {
+                    write(writer.ToArray());// need to write writer in case some included entries are part of factors
+                    writer.Clear();
+                }
+
+                string[] temp = read(num);
+                dbcache.Clear();
+                dbcache.AddRange(temp);
+                largest = Double.Parse(temp[temp.Length - 1]);
                 return dbcache.ToArray();
-
-            if (largest * largest == Double.Parse(num))//we are equal to the square of the largest prime (just return the largest, since it will be a factor)
-                return new string[] { largest.ToString() };
-
-            write(writer.ToArray());// need to write writer in case some included entries are part of factors
-            writer = new List<string>();
-
-            string[] temp = read(num);
-            dbcache.Clear();
-            dbcache.AddRange(temp);
-            largest = Double.Parse(temp[temp.Length - 1]);
-            return dbcache.ToArray();
+            }
         }
         /// <summary>
         /// Adds prime to writer
@@ -80,11 +88,14 @@ namespace _100primes
         /// <param name="num">group of number to add</param>
         public static void add_prime(string[] num)
         {
-            dbcache.AddRange(num);
-            if (dbcache.Count >= writerlimit)
+            lock (lck)
             {
-                write(writer.ToArray());
-                writer = new List<string>();
+                dbcache.AddRange(num);
+                if (dbcache.Count >= writerlimit)
+                {
+                    write(writer.ToArray());
+                    writer.Clear();
+                }
             }
         }
         /// <summary>
@@ -93,11 +104,14 @@ namespace _100primes
         /// <param name="num">number to add</param>
         public static void add_prime(string num)
         {
-            writer.Add(num);
-            if (writer.Count == writerlimit)
+            lock (lck)
             {
-                write(writer.ToArray());
-                writer = new List<string>();
+                writer.Add(num);
+                if (writer.Count == writerlimit)
+                {
+                    write(writer.ToArray());
+                    writer.Clear();
+                }
             }
         }
         /// <summary>
@@ -203,7 +217,7 @@ namespace _100primes
                 init();
             List<string> ret = new List<string>();
             string temp = "0";
-            using (SQLiteTransaction tr = m_dbConnection.BeginTransaction())
+            using (SQLiteTransaction tr = m_dbConnection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
             {
                 using (SQLiteCommand cmd = m_dbConnection.CreateCommand())
                 {
@@ -232,7 +246,7 @@ namespace _100primes
             if (!_init)
                 init();
             Int32 time = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
-            using (SQLiteTransaction tr = m_dbConnection.BeginTransaction())
+            using (SQLiteTransaction tr = m_dbConnection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted))
             {
                 using (SQLiteCommand cmd = m_dbConnection.CreateCommand())
                 {
@@ -258,3 +272,4 @@ namespace _100primes
         }
     }
 }
+
