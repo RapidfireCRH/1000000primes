@@ -27,7 +27,7 @@ namespace _100primes
         private static bool _init = false; // init variable
         private static SQLiteConnection m_dbConnection; // global connection variable
         private static double number = 1;
-        private static int writerlimit = 1000000;
+        private static int writerlimit = 1000;
         private readonly static object lck = new object();
         private readonly static object lck2 = new object();
 
