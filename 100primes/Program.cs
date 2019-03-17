@@ -19,8 +19,10 @@ namespace _100primes
         public static int process = 0;
         public static int threads = 0;
         static DateTime timer = DateTime.Now;
+        static double CPUpercentage = 1; // Added in case it needs to be throttled more then Process Priority can do. Limits currentthreads to (Maxthreads*CPUPercentage)
         static void Main(string[] args)
         {
+            System.Diagnostics.Process.GetCurrentProcess().PriorityClass = System.Diagnostics.ProcessPriorityClass.Normal; //Added in case it needs to be throttled
             dbclass.open(Directory.GetCurrentDirectory(), "db.sqlite");
             try
             {
@@ -110,7 +112,7 @@ namespace _100primes
             int portThreads;
 
             ThreadPool.GetMaxThreads(out workerThreads, out portThreads);
-            while (threads == workerThreads)
+            while (threads >= (Math.Ceiling(workerThreads * CPUpercentage)))
             {
                 if (DateTime.Now.Second != timer.Second)
                 {
