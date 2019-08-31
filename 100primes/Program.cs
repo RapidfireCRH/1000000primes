@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Alea;
+using Alea.Parallel;
 
 namespace _100primes
 {
@@ -47,7 +49,7 @@ namespace _100primes
                     }
                 }
             }
-            catch
+            catch(Exception e)
             {
                 dbclass.close();
             }
@@ -62,17 +64,24 @@ namespace _100primes
                 return false;
 
             string[] primes = dbclass.find_possible_factors(number);
+            int j = 0;
+            double[] num = new double[primes.Length];
+            double[] num3 = new double[primes.Length];
             foreach (string x in primes)
+            { 
+                num[j++] = double.Parse(x);
+            }
+            double num2 = double.Parse(number);
+            var gpu = Gpu.Default;
+            gpu.LongFor(0, primes.Length, i =>num3[i] = num2 % num[i]);
+
+            foreach(double x in num3)
             {
-                double num = double.Parse(x);
-                double num2 = double.Parse(number);
-                if (num * num > num2)//too big
+                if (x == 0)
                     return true;
-                if (num2 % num == 0)//is divisable
-                    return false;
             }
 
-            return true;
+            return false;
         }
         static void display(double num, DateTime timer)
         {
