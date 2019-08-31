@@ -21,7 +21,7 @@ namespace _100primes
             try
             {
                 Double lowlimit = Double.Parse(dbclass.dbstats.largestnum);
-                Double highlimit = Math.Sqrt(Double.MaxValue);
+                Double highlimit = 239811952854768; //P^1000000 -1
                 DateTime timer = DateTime.Now;
                 start = DateTime.Now;
                 for (double i = lowlimit + 1; i != highlimit; i++)
@@ -51,77 +51,19 @@ namespace _100primes
             {
                 dbclass.close();
             }
+            dbclass.close();
         }
         static bool isprime(string number)
         {
-            //if (number == "169")
-            //    Console.Write("");
-
-            //-----------LAST DIGIT CHECKS----------//
-            int last = int.Parse(number[number.Length - 1].ToString());
-            //--2--//
-            if (last % 2 == 0)//2
+            if (number[number.Length - 1] != '1' && 
+                number[number.Length - 1] != '3' && 
+                number[number.Length - 1] != '7' && 
+                number[number.Length - 1] != '9')
                 return false;
-            //--5--//
-            if (last == 5)//5 (0 is already covered by 2)
-                return false;
-
-            //---------Other Checks-----------------//
-            //--3--//
-            int total = 0;
-            foreach (char x in number)
-            {
-                total += int.Parse(x.ToString());
-                if (total > 10)
-                    total -= 9;
-            }
-            if (total % 3 == 0)
-                return false;//not prime
-
-            //--7--//
-            string sevens = number;
-            while (sevens.Length > 2)
-            {
-                uint secondhalf = uint.Parse(sevens[sevens.Length-1].ToString());
-                sevens = (double.Parse(sevens.Substring(0, sevens.Length - 1)) + (secondhalf*5)).ToString();
-            }
-            if (int.Parse(sevens) % 7 == 0)
-                return false;//not prime
-
-            //--11--//
-            bool flipflop = false;
-            double flip = 0;
-            double flop = 0;
-            foreach(char x in number)
-            {
-                if(flipflop)
-                {
-                    flipflop = false;
-                    flop += uint.Parse(x.ToString());
-                }
-                else
-                {
-                    flipflop = true;
-                    flip += uint.Parse(x.ToString());
-                }
-            }
-            if(Math.Abs((float)flip - flop)%11 == 0)
-                return false; // not prime
 
             string[] primes = dbclass.find_possible_factors(number);
             foreach (string x in primes)
             {
-                switch (x)//These checks are done prior to find these non-primes before going through the whole list. do not need to do them again
-
-                {
-                    case "2":
-                    case "3":
-                    case "5":
-                    case "7":
-                    case "11":
-                        continue;
-                }
-
                 double num = double.Parse(x);
                 double num2 = double.Parse(number);
                 if (num * num > num2)//too big
@@ -134,6 +76,15 @@ namespace _100primes
         }
         static void display(double num, DateTime timer)
         {
+           uint addval(uint[] val, int num2 = -1)
+            {
+                uint ret = 0;
+                if (num2 == -1)
+                    num2 = val.Length;
+                for (int i = 0; i != num2; i++)
+                    ret += val[i];
+                return ret;
+            }
             if (placeholder == 0)
                 placeholder = Double.Parse(dbclass.dbstats.databasesize);
 
@@ -184,15 +135,7 @@ namespace _100primes
 
             seconds[0] = 0;
         }
-        static uint addval(uint[] val, int num = -1)
-        {
-            uint ret = 0;
-            if (num == -1)
-                num = val.Length;
-            for (int i = 0; i != num; i++)
-                ret += val[i];
-            return ret;
-        }
+        
     }
 }
 

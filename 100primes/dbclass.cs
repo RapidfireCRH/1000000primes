@@ -27,7 +27,7 @@ namespace _100primes
         private static bool _init = false; // init variable
         private static SQLiteConnection m_dbConnection; // global connection variable
         private static double number = 1;
-        private static int writerlimit = 1000000;
+        private static int writerlimit = 5000;
 
         /// <summary>
         /// Opens a new db connection
@@ -65,8 +65,8 @@ namespace _100primes
             if (largest * largest == Double.Parse(num))//we are equal to the square of the largest prime (just return the largest, since it will be a factor)
                 return new string[] { largest.ToString() };
 
-            write(writer.ToArray());// need to write writer in case some included entries are part of factors
-            writer = new List<string>();
+            //write(writer.ToArray());// need to write writer in case some included entries are part of factors
+            //writer = new List<string>();
 
             string[] temp = read(num);
             dbcache.Clear();
@@ -94,7 +94,7 @@ namespace _100primes
         public static void add_prime(string num)
         {
             writer.Add(num);
-            if (writer.Count == writerlimit)
+            if (writer.Count >= writerlimit)
             {
                 write(writer.ToArray());
                 writer = new List<string>();
@@ -169,13 +169,11 @@ namespace _100primes
                     using (SQLiteCommand cmd = m_dbConnection.CreateCommand())
                     {
                         cmd.Transaction = tr;
-                        cmd.CommandText = "CREATE TABLE primes (num INTEGER Primary Key, prime INTEGER, squaredprime INTEGER, date INTEGER)";
+                        cmd.CommandText = "CREATE TABLE primes (num INTEGER Primary Key, prime INTEGER, date INTEGER)";
                         cmd.ExecuteNonQuery();
                         cmd.CommandText = "CREATE INDEX n ON primes(num)";
                         cmd.ExecuteNonQuery();
                         cmd.CommandText = "CREATE INDEX p ON primes(prime)";
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = "CREATE INDEX ps ON primes(squaredprime)";
                         cmd.ExecuteNonQuery();
                     }
                     tr.Commit();
@@ -209,7 +207,7 @@ namespace _100primes
                 {
 
                     cmd.Transaction = tr;
-                    string sql = "select num, prime from primes where squaredprime < " + condition + " and squaredprime <> 0";
+                    string sql = "select num, prime from onemillion where squaredprime < " + condition + " and squaredprime <> 0";
                     SQLiteCommand create = new SQLiteCommand(sql, m_dbConnection);
                     SQLiteDataReader read = create.ExecuteReader();
                     while (read.Read())
@@ -217,7 +215,7 @@ namespace _100primes
                         ret.Add(read["prime"].ToString());
                         temp = read["num"].ToString();
                     }
-                    sql = "select prime from primes where num = " + (uint.Parse(temp) + 1);
+                    sql = "select prime from onemillion where num = " + (uint.Parse(temp) + 1);
                     create = new SQLiteCommand(sql, m_dbConnection);
                     read = create.ExecuteReader();
                     while (read.Read())
@@ -238,16 +236,9 @@ namespace _100primes
                 {
                     foreach (string x in prime)
                     {
-                        cmd.CommandText = @"INSERT INTO primes (num, prime, squaredprime, date) VALUES (@num, @prime, @squaredprime, @date)";
+                        cmd.CommandText = @"INSERT INTO primes (num, prime, date) VALUES (@num, @prime, @date)";
                         cmd.Parameters.Add(new SQLiteParameter("@num", number++));
                         cmd.Parameters.Add(new SQLiteParameter("@prime", x));
-                        UInt64 temp2 = 0;
-                        try
-                        {
-                            temp2 = UInt64.Parse(x);
-                            cmd.Parameters.Add(new SQLiteParameter("@squaredprime", temp2 * temp2));
-                        }
-                        catch { dbstats.squarestoobig = true; dbstats.squarestoobigstart = (number - 1).ToString(); cmd.Parameters.Add(new SQLiteParameter("@squaredprime", 0)); }
                         cmd.Parameters.Add(new SQLiteParameter("@date", time));
                         cmd.ExecuteNonQuery();
                     }
